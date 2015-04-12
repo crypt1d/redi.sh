@@ -2,11 +2,12 @@
 
 REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
+CLIENT_VERSION=0.1
 
 . "functions/redis.sh"
 
 
-while getopts g:P:h:p opt; do
+while getopts g:P:H:p:h opt; do
 	case $opt in
 		p)
 			REDIS_PW=${OPTARG}
@@ -19,6 +20,13 @@ while getopts g:P:h:p opt; do
 			;;
 		g)
 			REDIS_GET=${OPTARG}
+			;;
+		h)
+			echo ""
+			echo "USAGE:"
+			echo "	$0 [-g <var>] [-p <password>] [-H <hostname>] [-P <port>]"
+			echo ""
+			exit 1
 			;;
 	esac
 done
