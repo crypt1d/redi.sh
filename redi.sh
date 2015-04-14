@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/bash -x
 
 REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
@@ -50,10 +50,10 @@ do
         REDIS_TODO=$line
 done < /dev/stdin
 
-read KEYNAME KEYVALUE <<<$(echo "$REDIS_TODO" | awk -F\= '{print $1,$2}')
+read KEYNAME KEYVALUE <<<$(printf %b "$REDIS_TODO" | awk -F\= '{print $1,$2}')
 
 redis_compose_cmd "SET $KEYNAME $KEYVALUE" >&3
-echo "$(redis_read)"
+printf %b "$(redis_read)"
 
 exec 3<&-
 exec 3>&-
