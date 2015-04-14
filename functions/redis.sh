@@ -2,12 +2,12 @@
 
 function redis_read_str() {
         typeset REDIS_STR="$@"
-        printf %b "$REDIS_STR" | cut -f2 -d"+" | tr -d '\r'
+        printf %b "$REDIS_STR" | cut -f2- -d"+" | tr -d '\r'
 }
 
 function redis_read_err() {
         typeset REDIS_ERR="$@"
-        printf %s "$REDIS_ERR" | cut -f2 -d"-"
+        printf %s "$REDIS_ERR" | cut -f2- -d"-"
         exit 1
 }
 
@@ -18,16 +18,19 @@ function redis_read_int() {
 
 function redis_read_bulk() {
         typeset -i BYTE_COUNT=$1
+	typeset -i FILE_DESC=$2
         if [[ $BYTE_COUNT -lt 0 ]]; then
                 echo "ERROR: Null or incorrect string size returned." >&2
+		exec {FILE_DESC}>&-
                 exit 1
         fi
 
-        dd bs=1 count=$BYTE_COUNT status=noxfer <&3 2>/dev/null
+        dd bs=1 count=$BYTE_COUNT status=noxfer <&$FILE_DESC 2>/dev/null
 }
 
 function redis_read_array() {
         typeset -i PARAM_COUNT=$1
+	typeset -i FILE_DESC=$2
         if [[ $PARAM_COUNT -lt 0 ]]; then
                 echo "ERROR: Null or incorrect array size returned." >&2
                 exit 1
@@ -36,18 +39,20 @@ function redis_read_array() {
         typeset -i CUR_PARAM=1
         while read line
         do
-                redis_read
+                redis_read $FILE_DESC
                 ((CUR_PARAM+=1))
 
                 if [[ $CUR_PARAM -gt $PARAM_COUNT ]]; then
                         break
                 fi
 
-        done<&3
+        done<&$FILE_DESC
 
 }
 
 function redis_read() {
+
+typeset -i FILE_DESC=$1
 
 while read socket_data
 do
@@ -69,34 +74,44 @@ do
                 "\$")
                         #echo "This is a bulk string."
                         bytecount=$(printf %b "$socket_data" | cut -f2 -d"\$" | tr -d '\r')
-                        redis_read_bulk $bytecount
+                        redis_read_bulk $bytecount $FILE_DESC
                         ;;
                 "*")
                         #echo "This is an array."
-                        paramcount=$(printf %b "$socket_data" | cut -f2 -d"\$" | tr -d '\r')
-                        readis_read_array $paramcount
+                        paramcount=$(printf %b "$socket_data" | cut -f2 -d"*" | tr -d '\r')
+                        readis_read_array $paramcount $FILE_DESC
                         ;;
         esac
 
         break
 
-done<&3
+done<&$FILE_DESC
 
 }
 
-function redis_compose_cmd() {
-        typeset -i PARAM_NUM=$(printf %b "$@" | wc -w )
-        typeset REDIS_CMD
+function redis_get_var() {
+	typeset REDIS_VAR="$@"
+	printf %b "*2\r\n\$3\r\nGET\r\n\$${#REDIS_VAR}\r\n$REDIS_VAR\r\n"
+}
 
-        for i in "$@"
-        do
-                typeset -i PARAM_NUM=$(printf %b "$i" | wc -w)
-                REDIS_CMD="$REDIS_CMD*$PARAM_NUM\r\n"
-                for y in $i
-                do
-                        REDIS_CMD="$REDIS_CMD""\$${#y}\r\n$y\r\n"
-                done
-        done
+function redis_set_var() {
+	typeset REDIS_VAR="$1"
+	shift
+	typeset REDIS_VAR_VAL="$@"
+	printf %b "*3\r\n\$3\r\nSET\r\n\$${#REDIS_VAR}\r\n$REDIS_VAR\r\n\$${#REDIS_VAR_VAL}\r\n$REDIS_VAR_VAL\r\n"
+}
 
-       printf %b "$REDIS_CMD"
+function redis_get_array() {
+	typeset REDIS_ARRAY="$1"
+	printf %b "*4\r\n\$6\r\nLRANGE\r\n\$${#REDIS_ARRAY}\r\n:0\r\n:-1\r\n"
+}
+
+function redis_set_array() {
+	typeset REDIS_ARRAY="$1"
+	typeset -a REDIS_ARRAY_VAL=("${!2}")
+	
+	for i in "${REDIS_ARRAY_VAL[@]}"
+	do
+		printf %b "*3\r\n\$5\r\nRPUSH\r\n\$${#REDIS_ARRAY}\r\n$REDIS_ARRAY\r\n\$${#i}\r\n$i\r\n"
+	done
 }
