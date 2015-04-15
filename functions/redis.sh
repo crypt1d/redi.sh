@@ -25,31 +25,8 @@ function redis_read_bulk() {
                 exit 1
         fi
 
-#	((BYTE_COUNT+=1))
-
         echo $(dd bs=1 count=$BYTE_COUNT status=noxfer <&$FILE_DESC 2>/dev/null)
-	dd bs=1 count=2 status=noxfer <&$FILE_DESC 1>/dev/null 2>&1
-}
-
-function redis_read_array() {
-        typeset -i PARAM_COUNT=$1
-	typeset -i FILE_DESC=$2
-        if [[ $PARAM_COUNT -lt 0 ]]; then
-                echo "ERROR: Null or incorrect array size returned." >&2
-                exit 1
-        fi
-
-        typeset -i CUR_PARAM=1
-        while read line
-        do
-                redis_read $FILE_DESC
-                ((CUR_PARAM+=1))
-                if [[ $CUR_PARAM -gt $PARAM_COUNT ]]; then
-                        break
-                fi
-
-        done<&$FILE_DESC
-
+	dd bs=1 count=2 status=noxfer <&$FILE_DESC 1>/dev/null 2>&1 # we are removing the extra character \r
 }
 
 function redis_read() {
@@ -86,7 +63,6 @@ do
                 "*")
                         #echo "This is an array."
                         paramcount=$(printf %b "$socket_data" | cut -f2 -d"*" | tr -d '\r')
-                        #redis_read_array $paramcount $FILE_DESC
 			redis_read $FILE_DESC $paramcount
                         ;;
         esac
@@ -120,7 +96,6 @@ function redis_set_var() {
 
 function redis_get_array() {
 	typeset REDIS_ARRAY="$1"
-#	printf %b "*4\r\n\$6\r\nLRANGE\r\n\$${#REDIS_ARRAY}\r\n$REDIS_ARRAY\r\n:0\r\n:-1\r\n"
 	printf %b "*4\r\n\$6\r\nLRANGE\r\n\$${#REDIS_ARRAY}\r\n$REDIS_ARRAY\r\n\$1\r\n0\r\n\$2\r\n-1\r\n"
 }
 
