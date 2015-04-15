@@ -134,7 +134,7 @@ while getopts g:P:H:p:ha opt; do
 		h)
 			echo ""
 			echo "USAGE:"
-			echo "	$0 [-g <var>] [-p <password>] [-H <hostname>] [-P <port>]"
+			echo "	$0 [-a] [-g <var>] [-p <password>] [-H <hostname>] [-P <port>]"
 			echo ""
 			exit 1
 			;;
@@ -184,7 +184,7 @@ if [[ $REDIS_ARRAY -eq 1 ]]; then
 	ARRAY_NAME=$(printf %b "$REDIS_TODO" | cut -f1 -d"=")
 	typeset -a temparray=$(printf %b "$REDIS_TODO" | cut -f2- -d"=")
 	redis_set_array $ARRAY_NAME temparray[@] >&$FD
-	redis_read $FD
+	redis_read $FD 1>/dev/null 2>&1
 	exit 0
 fi
 
@@ -192,6 +192,6 @@ KEYNAME=$(printf %b "$REDIS_TODO" | cut -f1 -d"=")
 KEYVALUE=$(printf %b "$REDIS_TODO" | cut -f2- -d"=")
 
 redis_set_var $KEYNAME $KEYVALUE >&$FD
-printf %b "$(redis_read $FD)"
+redis_read $FD 1>/dev/null 2>&1
 
 exec {FD}>&-
