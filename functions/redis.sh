@@ -41,7 +41,6 @@ function redis_read_array() {
         do
                 redis_read $FILE_DESC
                 ((CUR_PARAM+=1))
-
                 if [[ $CUR_PARAM -gt $PARAM_COUNT ]]; then
                         break
                 fi
@@ -79,7 +78,7 @@ do
                 "*")
                         #echo "This is an array."
                         paramcount=$(printf %b "$socket_data" | cut -f2 -d"*" | tr -d '\r')
-                        readis_read_array $paramcount $FILE_DESC
+                        redis_read_array $paramcount $FILE_DESC
                         ;;
         esac
 
@@ -103,7 +102,8 @@ function redis_set_var() {
 
 function redis_get_array() {
 	typeset REDIS_ARRAY="$1"
-	printf %b "*4\r\n\$6\r\nLRANGE\r\n\$${#REDIS_ARRAY}\r\n:0\r\n:-1\r\n"
+#	printf %b "*4\r\n\$6\r\nLRANGE\r\n\$${#REDIS_ARRAY}\r\n$REDIS_ARRAY\r\n:0\r\n:-1\r\n"
+	printf %b "*4\r\n\$6\r\nLRANGE\r\n\$${#REDIS_ARRAY}\r\n$REDIS_ARRAY\r\n\$1\r\n0\r\n\$2\r\n-1\r\n"
 }
 
 function redis_set_array() {

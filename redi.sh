@@ -1,4 +1,4 @@
-#!/bin/bash -x 
+#!/bin/bash -x
 
 REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
@@ -61,9 +61,8 @@ done < /dev/stdin
 if [[ $REDIS_ARRAY -eq 1 ]]; then
 	#we are treating the stdin as array
 	ARRAY_NAME=$(printf %b "$REDIS_TODO" | cut -f1 -d"=")
-	eval $(printf %b "$REDIS_TODO")
-	local typeset -a temparray=$ARRAY_NAME[@]
-	redis_set_array $ARRAY_NAME ${!temparray} >&$FD
+	typeset -a temparray=$(printf %b "$REDIS_TODO" | cut -f2- -d"=")
+	redis_set_array $ARRAY_NAME temparray[@] >&$FD
 	redis_read $FD
 	exit 0
 fi
