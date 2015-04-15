@@ -108,6 +108,7 @@ function redis_set_array() {
 	typeset REDIS_ARRAY="$1"
 	typeset -a REDIS_ARRAY_VAL=("${!2}")
 	
+	printf %b "*2\r\n\$3\r\nDEL\r\n\$${#REDIS_ARRAY}\r\n$REDIS_ARRAY\r\n"
 	for i in "${REDIS_ARRAY_VAL[@]}"
 	do
 		printf %b "*3\r\n\$5\r\nRPUSH\r\n\$${#REDIS_ARRAY}\r\n$REDIS_ARRAY\r\n\$${#i}\r\n$i\r\n"
