@@ -25,7 +25,10 @@ function redis_read_bulk() {
                 exit 1
         fi
 
-        dd bs=1 count=$BYTE_COUNT status=noxfer <&$FILE_DESC 2>/dev/null
+#	((BYTE_COUNT+=1))
+
+        echo $(dd bs=1 count=$BYTE_COUNT status=noxfer <&$FILE_DESC 2>/dev/null)
+	dd bs=1 count=2 status=noxfer <&$FILE_DESC 1>/dev/null 2>&1
 }
 
 function redis_read_array() {
@@ -53,6 +56,11 @@ function redis_read() {
 
 typeset -i FILE_DESC=$1
 
+if [[ $# -eq  2 ]]; then
+	typeset -i PARAM_COUNT=$2
+	typeset -i PARAM_CUR=1
+fi
+
 while read socket_data
 do
         typeset first_char=$(printf %b "$socket_data" | head -c1)
@@ -78,11 +86,21 @@ do
                 "*")
                         #echo "This is an array."
                         paramcount=$(printf %b "$socket_data" | cut -f2 -d"*" | tr -d '\r')
-                        redis_read_array $paramcount $FILE_DESC
+                        #redis_read_array $paramcount $FILE_DESC
+			redis_read $FILE_DESC $paramcount
                         ;;
         esac
 
-        break
+if [[ ! -z $PARAM_COUNT ]]; then
+	if [[ $PARAM_CUR -lt $PARAM_COUNT ]]; then
+		((PARAM_CUR+=1))
+		continue	
+	else	
+       		break
+	fi
+else
+	break
+fi
 
 done<&$FILE_DESC
 

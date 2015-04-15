@@ -1,4 +1,4 @@
-#!/bin/bash -x
+#!/bin/bash
 
 REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
@@ -43,7 +43,16 @@ fi
 if [[ ! -z $REDIS_GET ]]; then
 	if [[ $REDIS_ARRAY -eq 1 ]]; then
 		redis_get_array $REDIS_GET >&$FD
-		redis_read $FD
+		IFS=$'\n'
+		typeset -a OUTPUT_ARRAY
+
+		for i in `redis_read $FD`
+		do
+			OUTPUT_ARRAY+=($i)	
+		done
+
+		typeset | grep ^OUTPUT_ARRAY | sed "s/OUTPUT_ARRAY/$REDIS_GET/"
+
 	else	
 		redis_get_var $REDIS_GET >&$FD
 		redis_read $FD
