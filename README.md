@@ -1,6 +1,6 @@
 # redi.sh
 
-Redi.sh is a primitive Redis client, written entirely in Bash. It allows you to read/write keys and sets from redis as if they were regular Bash variables. See [this] blog post about how it was written.
+Redi.sh is a primitive Redis client, written entirely in Bash. It allows you to read/write keys and sets from redis as if they were regular Bash variables.
 
 ##Usage:
 
@@ -29,8 +29,3 @@ License
 ----
 
 MIT
-
-
-**Free Software, Hell Yeah!**
-
-[this]:http://digitalserb.me/writing-a-redis-client-in-pure-bash/

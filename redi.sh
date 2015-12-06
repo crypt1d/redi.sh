@@ -49,24 +49,19 @@ do
 
         case $first_char in
                 "+")
-                        #echo "This is a simple string."
                         redis_read_str "$socket_data"
                         ;;
                 "-")
-                        #echo "This is an error."
                         redis_read_err "$socket_data"
                         ;;
                 ":")
-                        #echo "This is an integer."
                         redis_read_int $socket_data
                         ;;
                 "\$")
-                        #echo "This is a bulk string."
                         bytecount=$(printf %b "$socket_data" | cut -f2 -d"\$" | tr -d '\r')
                         redis_read_bulk $bytecount $FILE_DESC
                         ;;
                 "*")
-                        #echo "This is an array."
                         paramcount=$(printf %b "$socket_data" | cut -f2 -d"*" | tr -d '\r')
 			redis_read $FILE_DESC $paramcount
                         ;;
@@ -143,10 +138,6 @@ while getopts g:P:H:p:ha opt; do
 done
 	
 
-#
-# Main thread
-#
-
 exec {FD}<> /dev/tcp/$REDIS_HOST/$REDIS_PORT
 
 if [[ ! -z $REDIS_PW ]]; then
@@ -175,7 +166,6 @@ if [[ ! -z $REDIS_GET ]]; then
 	exit 0
 fi
 
-# Pipe read
 while read line
 do
         REDIS_TODO=$line
