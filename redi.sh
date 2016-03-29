@@ -82,6 +82,11 @@ done<&$FILE_DESC
 
 }
 
+function redis_compose_cmd() {
+    typeset REDIS_PASS="$1"
+    printf %b "*2\r\n\$4\r\nAUTH\r\n\$${#REDIS_PASS}\r\n$REDIS_PASS\r\n"
+}
+
 function redis_get_var() {
 	typeset REDIS_VAR="$@"
 	printf %b "*2\r\n\$3\r\nGET\r\n\$${#REDIS_VAR}\r\n$REDIS_VAR\r\n"
@@ -141,7 +146,8 @@ done
 exec {FD}<> /dev/tcp/$REDIS_HOST/$REDIS_PORT
 
 if [[ ! -z $REDIS_PW ]]; then
-	redis_compose_cmd "AUTH $REDIS_PW" >&$FD
+	redis_compose_cmd $REDIS_PW >&$FD
+    redis_read $FD 1>/dev/null 2>&1
 fi
 
 if [[ ! -z $REDIS_GET ]]; then
