@@ -17,7 +17,7 @@ function redis_read_err() {
 }
 
 function redis_read_int() {
-        typeset -i OUT_INT=$(printf %s $1 | tr -d '\:' | tr -d '\r')
+        typeset -i OUT_INT=$(printf %s "$1" | tr -d '\:' | tr -d '\r')
         printf %b "$OUT_INT"
 }
 
@@ -30,8 +30,8 @@ function redis_read_bulk() {
                 exit 1
         fi
 
-        echo $(dd bs=1 count=$BYTE_COUNT status=noxfer <&$FILE_DESC 2>/dev/null)
-	dd bs=1 count=2 status=noxfer <&$FILE_DESC 1>/dev/null 2>&1 # we are removing the extra character \r
+        dd bs=1 count="$BYTE_COUNT" status=noxfer <&"$FILE_DESC" 2>/dev/null
+	dd bs=1 count=2 status=noxfer <&"$FILE_DESC" 1>/dev/null 2>&1 # we are removing the extra character \r
 }
 
 function redis_read() {
@@ -43,7 +43,7 @@ if [[ $# -eq  2 ]]; then
 	typeset -i PARAM_CUR=1
 fi
 
-while read socket_data
+while read -r socket_data
 do
         typeset first_char=$(printf %b "$socket_data" | head -c1)
 
@@ -55,15 +55,15 @@ do
                         redis_read_err "$socket_data"
                         ;;
                 ":")
-                        redis_read_int $socket_data
+                        redis_read_int "$socket_data"
                         ;;
                 "\$")
                         bytecount=$(printf %b "$socket_data" | cut -f2 -d"\$" | tr -d '\r')
-                        redis_read_bulk $bytecount $FILE_DESC
+                        redis_read_bulk "$bytecount" "$FILE_DESC"
                         ;;
                 "*")
                         paramcount=$(printf %b "$socket_data" | cut -f2 -d"*" | tr -d '\r')
-			redis_read $FILE_DESC $paramcount
+			redis_read "$FILE_DESC" "$paramcount"
                         ;;
         esac
 
@@ -78,7 +78,7 @@ else
 	break
 fi
 
-done<&$FILE_DESC
+done<&"$FILE_DESC"
 
 }
 
@@ -143,20 +143,20 @@ while getopts g:P:H:p:ha opt; do
 done
 	
 
-exec {FD}<> /dev/tcp/$REDIS_HOST/$REDIS_PORT
+exec {FD}<> /dev/tcp/"$REDIS_HOST"/"$REDIS_PORT"
 
 if [[ ! -z $REDIS_PW ]]; then
-	redis_compose_cmd $REDIS_PW >&$FD
+	redis_compose_cmd "$REDIS_PW" >&$FD
     redis_read $FD 1>/dev/null 2>&1
 fi
 
 if [[ ! -z $REDIS_GET ]]; then
 	if [[ $REDIS_ARRAY -eq 1 ]]; then
-		redis_get_array $REDIS_GET >&$FD
+		redis_get_array "$REDIS_GET" >&$FD
 		IFS=$'\n'
 		typeset -a OUTPUT_ARRAY
 
-		for i in `redis_read $FD`
+		for i in $(redis_read $FD)
 		do
 			OUTPUT_ARRAY+=($i)	
 		done
@@ -164,7 +164,7 @@ if [[ ! -z $REDIS_GET ]]; then
 		typeset | grep ^OUTPUT_ARRAY | sed "s/OUTPUT_ARRAY/$REDIS_GET/"
 
 	else	
-		redis_get_var $REDIS_GET >&$FD
+		redis_get_var "$REDIS_GET" >&$FD
 		redis_read $FD
 	fi
 
@@ -172,7 +172,7 @@ if [[ ! -z $REDIS_GET ]]; then
 	exit 0
 fi
 
-while read line
+while read -r line
 do
         REDIS_TODO=$line
 done < /dev/stdin
@@ -180,7 +180,7 @@ done < /dev/stdin
 if [[ $REDIS_ARRAY -eq 1 ]]; then
 	ARRAY_NAME=$(printf %b "$REDIS_TODO" | cut -f1 -d"=")
 	typeset -a temparray=$(printf %b "$REDIS_TODO" | cut -f2- -d"=")
-	redis_set_array $ARRAY_NAME temparray[@] >&$FD
+	redis_set_array "$ARRAY_NAME" temparray[@] >&$FD
 	redis_read $FD 1>/dev/null 2>&1
 	exit 0
 fi
@@ -188,7 +188,7 @@ fi
 KEYNAME=$(printf %b "$REDIS_TODO" | cut -f1 -d"=")
 KEYVALUE=$(printf %b "$REDIS_TODO" | cut -f2- -d"=")
 
-redis_set_var $KEYNAME $KEYVALUE >&$FD
+redis_set_var "$KEYNAME" "$KEYVALUE" >&$FD
 redis_read $FD 1>/dev/null 2>&1
 
 exec {FD}>&-
