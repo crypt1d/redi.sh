@@ -70,8 +70,8 @@ do
 if [[ ! -z $PARAM_COUNT ]]; then
 	if [[ $PARAM_CUR -lt $PARAM_COUNT ]]; then
 		((PARAM_CUR+=1))
-		continue	
-	else	
+		continue
+	else
        		break
 	fi
 else
@@ -107,7 +107,7 @@ function redis_get_array() {
 function redis_set_array() {
 	typeset REDIS_ARRAY="$1"
 	typeset -a REDIS_ARRAY_VAL=("${!2}")
-	
+
 	printf %b "*2\r\n\$3\r\nDEL\r\n\$${#REDIS_ARRAY}\r\n$REDIS_ARRAY\r\n"
 	for i in "${REDIS_ARRAY_VAL[@]}"
 	do
@@ -141,7 +141,7 @@ while getopts g:P:H:p:ha opt; do
 			;;
 	esac
 done
-	
+
 
 exec {FD}<> /dev/tcp/"$REDIS_HOST"/"$REDIS_PORT"
 
@@ -158,12 +158,12 @@ if [[ ! -z $REDIS_GET ]]; then
 
 		for i in $(redis_read $FD)
 		do
-			OUTPUT_ARRAY+=($i)	
+			OUTPUT_ARRAY+=($i)
 		done
 
 		typeset | grep ^OUTPUT_ARRAY | sed "s/OUTPUT_ARRAY/$REDIS_GET/"
 
-	else	
+	else
 		redis_get_var "$REDIS_GET" >&$FD
 		redis_read $FD
 	fi
