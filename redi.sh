@@ -25,7 +25,7 @@ function redis_read_bulk() {
         declare -i BYTE_COUNT=$1
 	declare -i FILE_DESC=$2
         if [[ $BYTE_COUNT -lt 0 ]]; then
-                echo 'ERROR: Null or incorrect string size returned.' >&2
+                echo ERROR: Null or incorrect string size returned. >&2
 		exec {FILE_DESC}>&-
                 exit 1
         fi
@@ -45,7 +45,8 @@ fi
 
 while read -r socket_data
 do
-        declare first_char=$(printf %b "$socket_data" | head -c1)
+        declare first_char
+        first_char=$(printf %b "$socket_data" | head -c1)
 
         case $first_char in
                 '+')
@@ -175,7 +176,7 @@ fi
 while read -r line
 do
         REDIS_TODO=$line
-done < /dev/stdin
+done </dev/stdin
 
 if [[ $REDIS_ARRAY -eq 1 ]]; then
 	ARRAY_NAME=$(printf %b "$REDIS_TODO" | cut -f1 -d=)
