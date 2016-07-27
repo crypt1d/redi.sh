@@ -19,15 +19,15 @@ Redi.sh is a primitive Redis client, written entirely in Bash. It allows you to 
 ##Example:
 
 ```shell
-$ declare Color="red"
-$ declare | grep ^Color= | ./redi.sh
+$ typeset Color="red"
+$ typeset | grep ^Color= | ./redi.sh
 $ ./redi.sh -g Color
 red
 ```
 
 ```shell
-$ declare -a Colors=([0]="red" [1]="green" [2]="blue")
-$ declare | grep ^Colors= | ./redi.sh -a
+$ typeset -a Colors=([0]="red" [1]="green" [2]="blue")
+$ typeset | grep ^Colors= | ./redi.sh -a
 $ ./redi.sh -ag Colors
 Colors=([0]="red" [1]="green" [2]="blue")
 ```

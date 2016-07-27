@@ -6,24 +6,24 @@ CLIENT_VERSION=0.2
 
 
 function redis_read_str() {
-        declare REDIS_STR="$@"
+        typeset REDIS_STR="$@"
         printf %b "$REDIS_STR" | cut -f2- -d+ | tr -d '\r'
 }
 
 function redis_read_err() {
-        declare REDIS_ERR="$@"
+        typeset REDIS_ERR="$@"
         printf %s "$REDIS_ERR" | cut -f2- -d-
         exit 1
 }
 
 function redis_read_int() {
-        declare -i OUT_INT=$(printf %s "$1" | tr -d : | tr -d '\r')
+        typeset -i OUT_INT=$(printf %s "$1" | tr -d : | tr -d '\r')
         printf %b "$OUT_INT"
 }
 
 function redis_read_bulk() {
-        declare -i BYTE_COUNT=$1
-	declare -i FILE_DESC=$2
+        typeset -i BYTE_COUNT=$1
+        typeset -i FILE_DESC=$2
         if [[ $BYTE_COUNT -lt 0 ]]; then
                 echo ERROR: Null or incorrect string size returned. >&2
 		exec {FILE_DESC}>&-
@@ -36,16 +36,16 @@ function redis_read_bulk() {
 
 function redis_read() {
 
-declare -i FILE_DESC=$1
+typeset -i FILE_DESC=$1
 
 if [[ $# -eq  2 ]]; then
-	declare -i PARAM_COUNT=$2
-	declare -i PARAM_CUR=1
+	typeset -i PARAM_COUNT=$2
+	typeset -i PARAM_CUR=1
 fi
 
 while read -r socket_data
 do
-        declare first_char
+        typeset first_char
         first_char=$(printf %b "$socket_data" | head -c1)
 
         case $first_char in
@@ -84,30 +84,30 @@ done<&"$FILE_DESC"
 }
 
 function redis_compose_cmd() {
-    declare REDIS_PASS="$1"
+    typeset REDIS_PASS="$1"
     printf %b "*2\r\n\$4\r\nAUTH\r\n\$${#REDIS_PASS}\r\n$REDIS_PASS\r\n"
 }
 
 function redis_get_var() {
-	declare REDIS_VAR="$@"
+	typeset REDIS_VAR="$@"
 	printf %b "*2\r\n\$3\r\nGET\r\n\$${#REDIS_VAR}\r\n$REDIS_VAR\r\n"
 }
 
 function redis_set_var() {
-	declare REDIS_VAR="$1"
+	typeset REDIS_VAR="$1"
 	shift
-	declare REDIS_VAR_VAL="$@"
+	typeset REDIS_VAR_VAL="$@"
 	printf %b "*3\r\n\$3\r\nSET\r\n\$${#REDIS_VAR}\r\n$REDIS_VAR\r\n\$${#REDIS_VAR_VAL}\r\n$REDIS_VAR_VAL\r\n"
 }
 
 function redis_get_array() {
-	declare REDIS_ARRAY="$1"
+	typeset REDIS_ARRAY="$1"
 	printf %b "*4\r\n\$6\r\nLRANGE\r\n\$${#REDIS_ARRAY}\r\n$REDIS_ARRAY\r\n\$1\r\n0\r\n\$2\r\n-1\r\n"
 }
 
 function redis_set_array() {
-	declare REDIS_ARRAY="$1"
-	declare -a REDIS_ARRAY_VAL=("${!2}")
+	typeset REDIS_ARRAY="$1"
+	typeset -a REDIS_ARRAY_VAL=("${!2}")
 
 	printf %b "*2\r\n\$3\r\nDEL\r\n\$${#REDIS_ARRAY}\r\n$REDIS_ARRAY\r\n"
 	for i in "${REDIS_ARRAY_VAL[@]}"
@@ -155,14 +155,14 @@ if [[ ! -z $REDIS_GET ]]; then
 	if [[ $REDIS_ARRAY -eq 1 ]]; then
 		redis_get_array "$REDIS_GET" >&$FD
 		IFS=$'\n'
-		declare -a OUTPUT_ARRAY
+		typeset -a OUTPUT_ARRAY
 
 		for i in $(redis_read $FD)
 		do
 			OUTPUT_ARRAY+=($i)
 		done
 
-		declare | grep ^OUTPUT_ARRAY | sed s/OUTPUT_ARRAY/"$REDIS_GET"/
+		typeset | grep ^OUTPUT_ARRAY | sed s/OUTPUT_ARRAY/"$REDIS_GET"/
 
 	else
 		redis_get_var "$REDIS_GET" >&$FD
@@ -180,7 +180,7 @@ done </dev/stdin
 
 if [[ $REDIS_ARRAY -eq 1 ]]; then
 	ARRAY_NAME=$(printf %b "$REDIS_TODO" | cut -f1 -d=)
-	declare -a temparray=$(printf %b "$REDIS_TODO" | cut -f2- -d=)
+	typeset -a temparray=$(printf %b "$REDIS_TODO" | cut -f2- -d=)
 	redis_set_array "$ARRAY_NAME" temparray[@] >&$FD
 	redis_read $FD 1>/dev/null 2>&1
 	exit 0
