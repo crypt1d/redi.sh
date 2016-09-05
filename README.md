@@ -1,13 +1,21 @@
-# redi.sh
+# Redi
 
-Redi.sh is a primitive Redis client, written entirely in Bash. It allows you to read/write keys and sets from redis as if they were regular Bash variables.
+Redi is a primitive Redis client, written entirely in Bash. It allows you to read/write keys and sets from redis as if they were regular Bash variables.
 
-##Usage:
+## Installing
+Install redi in path with:
+```bash
+cd redi.sh
+sudo make install
+```
 
->By default redi.sh reads input from stdin and interprets it as a variable or array (if -a is used).
+
+## Usage:
+
+>By default redi reads input from stdin and interprets it as a variable or array (if -a is used).
 
 ```
-./redi.sh [-a] [-g <variable|array>] [-p <password>] [-H <hostname>] [-P <port>]
+redi [-a] [-g <variable|array>] [-p <password>] [-H <hostname>] [-P <port>]
 
     -a              : Tells the script that we are working with arrays, instead of regular variables.
     -g <name>       : Get the variable/array specified by <name> and output it to stdin.
@@ -20,15 +28,15 @@ Redi.sh is a primitive Redis client, written entirely in Bash. It allows you to 
 
 ```shell
 $ typeset Color="red"
-$ typeset | grep ^Color= | ./redi.sh
-$ ./redi.sh -g Color
+$ typeset | grep ^Color= | redi
+$ redi -g Color
 red
 ```
 
 ```shell
 $ typeset -a Colors=([0]="red" [1]="green" [2]="blue")
-$ typeset | grep ^Colors= | ./redi.sh -a
-$ ./redi.sh -ag Colors
+$ typeset | grep ^Colors= | redi -a
+$ redi -ag Colors
 Colors=([0]="red" [1]="green" [2]="blue")
 ```
 
