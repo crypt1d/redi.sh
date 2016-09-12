@@ -2,7 +2,7 @@
 
 REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
-CLIENT_VERSION=0.2
+CLIENT_VERSION=0.3
 
 
 function redis_read_str() {
@@ -116,7 +116,7 @@ function redis_set_array() {
 	done
 }
 
-while getopts g:P:H:p:ha opt; do
+while getopts g:s:P:H:p:ha opt; do
 	case $opt in
 		p)
 			REDIS_PW=${OPTARG}
@@ -133,16 +133,23 @@ while getopts g:P:H:p:ha opt; do
 		a)
 			REDIS_ARRAY=1
 			;;
+		s)
+			REDIS_SET=${OPTARG}
+			;;
 		h)
 			echo
 			echo USAGE:
-			echo "	$0 [-a] [-g <var>] [-p <password>] [-H <hostname>] [-P <port>]"
+			echo "	$0 [-a] [-s <var>] [-g <var>] [-p <password>] [-H <hostname>] [-P <port>]"
 			echo
 			exit 1
 			;;
 	esac
 done
 
+if [[ -z $REDIS_GET ]] && [[ -z $REDIS_SET ]]; then
+	echo "You must either GET(-g) or SET(-s)" >&2
+	exit 1
+fi
 
 exec {FD}<> /dev/tcp/"$REDIS_HOST"/"$REDIS_PORT"
 
@@ -155,14 +162,11 @@ if [[ ! -z $REDIS_GET ]]; then
 	if [[ $REDIS_ARRAY -eq 1 ]]; then
 		redis_get_array "$REDIS_GET" >&$FD
 		IFS=$'\n'
-		typeset -a OUTPUT_ARRAY
 
 		for i in $(redis_read $FD)
 		do
-			OUTPUT_ARRAY+=($i)
+			echo $i
 		done
-
-		typeset | grep ^OUTPUT_ARRAY | sed s/OUTPUT_ARRAY/"$REDIS_GET"/
 
 	else
 		redis_get_var "$REDIS_GET" >&$FD
@@ -178,18 +182,16 @@ do
         REDIS_TODO=$line
 done </dev/stdin
 
-if [[ $REDIS_ARRAY -eq 1 ]]; then
-	ARRAY_NAME=$(printf %b "$REDIS_TODO" | cut -f1 -d=)
-	typeset -a temparray=$(printf %b "$REDIS_TODO" | cut -f2- -d=)
-	redis_set_array "$ARRAY_NAME" temparray[@] >&$FD
-	redis_read $FD 1>/dev/null 2>&1
+if [[ ! -z $REDIS_SET ]]; then
+	if [[ $REDIS_ARRAY -eq 1 ]]; then
+		set -- $REDIS_TODO
+		typeset -a temparray=( $@ )
+		redis_set_array "$REDIS_SET" temparray[@] >&$FD
+		redis_read $FD 1>/dev/null 2>&1
+	else
+		redis_set_var "$REDIS_SET" "$REDIS_TODO" >&$FD
+		redis_read $FD 1>/dev/null 2>&1
+	fi
+	exec {FD}>&-
 	exit 0
 fi
-
-KEYNAME=$(printf %b "$REDIS_TODO" | cut -f1 -d=)
-KEYVALUE=$(printf %b "$REDIS_TODO" | cut -f2- -d=)
-
-redis_set_var "$KEYNAME" "$KEYVALUE" >&$FD
-redis_read $FD 1>/dev/null 2>&1
-
-exec {FD}>&-

@@ -10,7 +10,8 @@ Redi.sh is a primitive Redis client, written entirely in Bash. It allows you to 
 ./redi.sh [-a] [-g <variable|array>] [-p <password>] [-H <hostname>] [-P <port>]
 
     -a              : Tells the script that we are working with arrays, instead of regular variables.
-    -g <name>       : Get the variable/array specified by <name> and output it to stdin.
+    -g <name>       : Get the variable/array specified by <name> and output it to stdout.
+	-s <name>		: Set the variable/array specified by <name> with the input from stdin.
     -p <password>   : Use "AUTH <password>" before running the SET/GET command to authenticate to redis.
     -H <hostname>   : Specify a custom hostname to connect to. Default is localhost.
     -P <port>       : Specify a custom port to connect to. Default is 6379.
@@ -19,17 +20,17 @@ Redi.sh is a primitive Redis client, written entirely in Bash. It allows you to 
 ##Example:
 
 ```shell
-$ typeset Color="red"
-$ typeset | grep ^Color= | ./redi.sh
-$ ./redi.sh -g Color
-red
+$ echo "this is a variable" | ./redi.sh -s testvar
+$ ./redi.sh -g testvar
+this is a variable
 ```
 
 ```shell
-$ typeset -a Colors=([0]="red" [1]="green" [2]="blue")
-$ typeset | grep ^Colors= | ./redi.sh -a
+$ echo red green blue | ./redi.sh -as Colors
 $ ./redi.sh -ag Colors
-Colors=([0]="red" [1]="green" [2]="blue")
+red
+green
+blue
 ```
 
 License
