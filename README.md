@@ -5,6 +5,7 @@ Redi.sh is a primitive Redis client, written entirely in Bash. It allows you to 
 ##Usage:
 
 >By default redi.sh reads input from stdin and interprets it as a variable or array (if -a is used).
+>To avoid setting redis hostname and port number with each command, you can export REDIS_HOST and REDIS_PORT variables.
 
 ```
 ./redi.sh [-a] [-g <variable|array>] [-p <password>] [-H <hostname>] [-P <port>]
