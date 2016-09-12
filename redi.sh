@@ -2,7 +2,8 @@
 
 REDIS_HOST="${REDIS_HOST:-127.0.0.1}"
 REDIS_PORT="${REDIS_PORT:-6379}"
-CLIENT_VERSION=0.3
+CLIENT_VERSION=0.4
+REDIS_ARRAY_RANGE="0,-1"
 
 
 function redis_read_str() {
@@ -102,7 +103,9 @@ function redis_set_var() {
 
 function redis_get_array() {
 	typeset REDIS_ARRAY="$1"
-	printf %b "*4\r\n\$6\r\nLRANGE\r\n\$${#REDIS_ARRAY}\r\n$REDIS_ARRAY\r\n\$1\r\n0\r\n\$2\r\n-1\r\n"
+	RANGE_LOW=$(echo $2 | cut -f1 -d,)
+	RANGE_HIGH=$(echo $2 | cut -f2 -d,)
+	printf %b "*4\r\n\$6\r\nLRANGE\r\n\$${#REDIS_ARRAY}\r\n$REDIS_ARRAY\r\n\$${#RANGE_LOW}\r\n$RANGE_LOW\r\n\$${#RANGE_HIGH}\r\n$RANGE_HIGH\r\n"
 }
 
 function redis_set_array() {
@@ -116,7 +119,7 @@ function redis_set_array() {
 	done
 }
 
-while getopts g:s:P:H:p:ha opt; do
+while getopts g:s:r:P:H:p:ha opt; do
 	case $opt in
 		p)
 			REDIS_PW=${OPTARG}
@@ -133,13 +136,16 @@ while getopts g:s:P:H:p:ha opt; do
 		a)
 			REDIS_ARRAY=1
 			;;
+		r)
+			REDIS_ARRAY_RANGE=${OPTARG}
+			;;
 		s)
 			REDIS_SET=${OPTARG}
 			;;
 		h)
 			echo
 			echo USAGE:
-			echo "	$0 [-a] [-s <var>] [-g <var>] [-p <password>] [-H <hostname>] [-P <port>]"
+			echo "	$0 [-a] [-r <range>] [-s <var>] [-g <var>] [-p <password>] [-H <hostname>] [-P <port>]"
 			echo
 			exit 1
 			;;
@@ -160,7 +166,7 @@ fi
 
 if [[ ! -z $REDIS_GET ]]; then
 	if [[ $REDIS_ARRAY -eq 1 ]]; then
-		redis_get_array "$REDIS_GET" >&$FD
+		redis_get_array "$REDIS_GET" "$REDIS_ARRAY_RANGE" >&$FD
 		IFS=$'\n'
 
 		for i in $(redis_read $FD)
