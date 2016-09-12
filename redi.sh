@@ -30,8 +30,8 @@ function redis_read_bulk() {
                 exit 1
         fi
 
-        dd bs=1 count="$BYTE_COUNT" status=noxfer <&"$FILE_DESC" 2>/dev/null
-	dd bs=1 count=2 status=noxfer <&"$FILE_DESC" 1>/dev/null 2>&1 # we are removing the extra character \r
+        echo $(dd bs=1 count=$BYTE_COUNT status=noxfer <&$FILE_DESC 2>/dev/null)
+        dd bs=1 count=2 status=noxfer <&$FILE_DESC 1>/dev/null 2>&1 # we are removing the extra character \r
 }
 
 function redis_read() {
