@@ -2,6 +2,7 @@
 
 REDIS_HOST="${REDIS_HOST:-127.0.0.1}"
 REDIS_PORT="${REDIS_PORT:-6379}"
+REDIS_DB="${REDIS_DB:-0}"
 CLIENT_VERSION=0.4
 REDIS_ARRAY_RANGE="0,-1"
 
@@ -89,6 +90,12 @@ function redis_compose_cmd() {
     printf %b "*2\r\n\$4\r\nAUTH\r\n\$${#REDIS_PASS}\r\n$REDIS_PASS\r\n"
 }
 
+function redis_select_db() {
+    typeset REDIS_DB="$1"
+    printf %b "*2\r\n\$6\r\nSELECT\r\n\$${#REDIS_DB}\r\n$REDIS_DB\r\n"
+}
+
+
 function redis_get_var() {
 	typeset REDIS_VAR="$@"
 	printf %b "*2\r\n\$3\r\nGET\r\n\$${#REDIS_VAR}\r\n$REDIS_VAR\r\n"
@@ -119,7 +126,7 @@ function redis_set_array() {
 	done
 }
 
-while getopts g:s:r:P:H:p:ha opt; do
+while getopts g:s:r:P:H:p:d:ha opt; do
 	case $opt in
 		p)
 			REDIS_PW=${OPTARG}
@@ -142,10 +149,13 @@ while getopts g:s:r:P:H:p:ha opt; do
 		s)
 			REDIS_SET=${OPTARG}
 			;;
+    d)
+			REDIS_DB=${OPTARG}
+			;;
 		h)
 			echo
 			echo USAGE:
-			echo "	$0 [-a] [-r <range>] [-s <var>] [-g <var>] [-p <password>] [-H <hostname>] [-P <port>]"
+			echo "	$0 [-a] [-r <range>] [-s <var>] [-g <var>] [-p <password>] [-d <database_number>] [-H <hostname>] [-P <port>]"
 			echo
 			exit 1
 			;;
@@ -158,6 +168,9 @@ if [[ -z $REDIS_GET ]] && [[ -z $REDIS_SET ]]; then
 fi
 
 exec {FD}<> /dev/tcp/"$REDIS_HOST"/"$REDIS_PORT"
+
+redis_select_db "$REDIS_DB" >&$FD
+redis_read $FD 1>/dev/null 2>&1
 
 if [[ ! -z $REDIS_PW ]]; then
 	redis_compose_cmd "$REDIS_PW" >&$FD
