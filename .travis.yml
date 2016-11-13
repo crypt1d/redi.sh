@@ -1,0 +1,6 @@
+sudo: false
+services:
+  - redis
+script:
+  - bash --version
+  - bash -ex ./test.sh

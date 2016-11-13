@@ -3,7 +3,7 @@
 # Test redi.sh
 
 
-## Test str var
+echo Test str var
 
 typeset Color='red'
 typeset | grep ^Color= | ./redi.sh
@@ -13,7 +13,7 @@ out="$(./redi.sh -g Color)"
 [[ 'red' == "$out" ]]
 
 
-## Test array var
+echo Test array var
 
 typeset -a Colors=([0]='red' [1]='green' [2]='blue')
 typeset | grep ^Colors= | ./redi.sh -a
@@ -21,3 +21,6 @@ typeset | grep ^Colors= | ./redi.sh -a
 out="$(./redi.sh -ag Colors)"
 
 [[ 'Colors=([0]="red" [1]="green" [2]="blue")' == "$out" ]]
+
+
+echo Done
