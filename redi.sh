@@ -101,6 +101,15 @@ function redis_get_var() {
 	printf %b "*2\r\n\$3\r\nGET\r\n\$${#REDIS_VAR}\r\n$REDIS_VAR\r\n"
 }
 
+function redis_blpop_var() {
+	((number=$#+1))
+	protocol="*$number\r\n\$5\r\nBLPOP\r\n"
+	for i in "$@"; do
+		protocol="$protocol\$${#i}\r\n$i\r\n"
+	done
+	printf %b $protocol
+}
+
 function redis_set_var() {
 	typeset REDIS_VAR="$1"
 	shift
@@ -119,14 +128,16 @@ function redis_set_array() {
 	typeset REDIS_ARRAY="$1"
 	typeset -a REDIS_ARRAY_VAL=("${!2}")
 
-	printf %b "*2\r\n\$3\r\nDEL\r\n\$${#REDIS_ARRAY}\r\n$REDIS_ARRAY\r\n"
+	if [ -z $REDIS_PUSH ]; then
+		printf %b "*2\r\n\$3\r\nDEL\r\n\$${#REDIS_ARRAY}\r\n$REDIS_ARRAY\r\n"
+	fi
 	for i in "${REDIS_ARRAY_VAL[@]}"
 	do
 		printf %b "*3\r\n\$5\r\nRPUSH\r\n\$${#REDIS_ARRAY}\r\n$REDIS_ARRAY\r\n\$${#i}\r\n$i\r\n"
 	done
 }
 
-while getopts g:s:r:P:H:p:d:ha opt; do
+while getopts g:s:r:P:H:p:d:R:B:ha opt; do
 	case $opt in
 		p)
 			REDIS_PW=${OPTARG}
@@ -149,13 +160,23 @@ while getopts g:s:r:P:H:p:d:ha opt; do
 		s)
 			REDIS_SET=${OPTARG}
 			;;
+		R)
+			REDIS_ARRAY=1
+			REDIS_PUSH=1
+			REDIS_SET=${OPTARG}
+			;;
+		B)
+			REDIS_ARRAY=0
+			REDIS_POP=1
+			REDIS_GET=${OPTARG}
+			;;
     d)
 			REDIS_DB=${OPTARG}
 			;;
 		h)
 			echo
 			echo USAGE:
-			echo "	$0 [-a] [-r <range>] [-s <var>] [-g <var>] [-p <password>] [-d <database_number>] [-H <hostname>] [-P <port>]"
+			echo "	$0 [-a] [-r <range>] [-s <var>] [-g <var>] [-R <var>] [-B <var>] [-p <password>] [-d <database_number>] [-H <hostname>] [-P <port>]"
 			echo
 			exit 1
 			;;
@@ -186,6 +207,10 @@ if [[ ! -z $REDIS_GET ]]; then
 		do
 			echo $i
 		done
+
+	elif [ ! -z $REDIS_POP ]; then
+		redis_blpop_var "$REDIS_GET" 0 >&$FD
+		redis_read $FD
 
 	else
 		redis_get_var "$REDIS_GET" >&$FD
