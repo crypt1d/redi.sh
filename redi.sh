@@ -137,7 +137,7 @@ function redis_set_array() {
 	done
 }
 
-while getopts g:s:r:P:H:p:d:R:B:ha opt; do
+while getopts g:s:r:P:H:p:d:G:S:ha opt; do
 	case $opt in
 		p)
 			REDIS_PW=${OPTARG}
@@ -160,15 +160,15 @@ while getopts g:s:r:P:H:p:d:R:B:ha opt; do
 		s)
 			REDIS_SET=${OPTARG}
 			;;
-		R)
-			REDIS_ARRAY=1
-			REDIS_PUSH=1
-			REDIS_SET=${OPTARG}
-			;;
-		B)
+		G)
 			REDIS_ARRAY=0
 			REDIS_POP=1
 			REDIS_GET=${OPTARG}
+			;;
+		S)
+			REDIS_ARRAY=1
+			REDIS_PUSH=1
+			REDIS_SET=${OPTARG}
 			;;
     d)
 			REDIS_DB=${OPTARG}
@@ -176,7 +176,7 @@ while getopts g:s:r:P:H:p:d:R:B:ha opt; do
 		h)
 			echo
 			echo USAGE:
-			echo "	$0 [-a] [-r <range>] [-s <var>] [-g <var>] [-R <var>] [-B <var>] [-p <password>] [-d <database_number>] [-H <hostname>] [-P <port>]"
+			echo "	$0 [-a] [-r <range>] [-s <var>] [-g <var>] [-S <var>] [-G <var>] [-p <password>] [-d <database_number>] [-H <hostname>] [-P <port>]"
 			echo
 			exit 1
 			;;
@@ -184,7 +184,7 @@ while getopts g:s:r:P:H:p:d:R:B:ha opt; do
 done
 
 if [[ -z $REDIS_GET ]] && [[ -z $REDIS_SET ]]; then
-	echo "You must either GET(-g) or SET(-s)" >&2
+	echo "You must either GET(-g) or SET(-s) or BLPOP(-G) or RPUSH(-S)" >&2
 	exit 1
 fi
 
