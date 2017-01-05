@@ -73,6 +73,7 @@ do
 if [[ ! -z $PARAM_COUNT ]]; then
 	if [[ $PARAM_CUR -lt $PARAM_COUNT ]]; then
 		((PARAM_CUR+=1))
+		echo
 		continue
 	else
        		break
