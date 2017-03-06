@@ -134,7 +134,8 @@ function redis_hset_var() {
 	typeset REDIS_VAR="$1"
 	typeset REDIS_FIELD="$2"
 	typeset REDIS_VALUE="$3"
-	printf %b "*4\r\n\$4\r\nHSET\r\n\$${#REDIS_VAR}\r\n$REDIS_VAR\r\n\$${#REDIS_FIELD}\r\n${REDIS_FIELD}\r\n\$${#REDIS_VALUE}\r\n${REDIS_VALUE}\r\n"
+	typeset BYTES=`echo -n ${REDIS_VALUE} | wc -c`
+	printf %b "*4\r\n\$4\r\nHSET\r\n\$${#REDIS_VAR}\r\n$REDIS_VAR\r\n\$${#REDIS_FIELD}\r\n${REDIS_FIELD}\r\n\$${BYTES}\r\n${REDIS_VALUE}\r\n"
 }
 
 function redis_del_var() {
@@ -146,7 +147,8 @@ function redis_hincrby() {
 	typeset REDIS_VAR="$1"
 	typeset REDIS_FIELD="$2"
 	typeset REDIS_VALUE="$3"
-	printf %b "*4\r\n\$7\r\nHINCRBY\r\n\$${#REDIS_VAR}\r\n$REDIS_VAR\r\n\$${#REDIS_FIELD}\r\n${REDIS_FIELD}\r\n\$${#REDIS_VALUE}\r\n${REDIS_VALUE}\r\n"
+	typeset BYTES=`echo -n ${REDIS_VALUE} | wc -c`
+	printf %b "*4\r\n\$7\r\nHINCRBY\r\n\$${#REDIS_VAR}\r\n$REDIS_VAR\r\n\$${#REDIS_FIELD}\r\n${REDIS_FIELD}\r\n\$${BYTES}\r\n${REDIS_VALUE}\r\n"
 }
 
 function redis_get_array() {
