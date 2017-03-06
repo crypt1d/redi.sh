@@ -1,6 +1,6 @@
 #!/bin/bash
 
-REDIS_HOST="${REDIS_HOST:-127.0.0.1}"
+REDIS_HOST="${REDIS_HOST:-open009}"
 REDIS_PORT="${REDIS_PORT:-6379}"
 REDIS_DB="${REDIS_DB:-0}"
 CLIENT_VERSION=0.4
@@ -98,8 +98,14 @@ function redis_select_db() {
 
 
 function redis_get_var() {
-	typeset REDIS_VAR="$@"
-	printf %b "*2\r\n\$3\r\nGET\r\n\$${#REDIS_VAR}\r\n$REDIS_VAR\r\n"
+	if [ -z $REDIS_HASH ]; then
+		typeset REDIS_VAR="$@"
+		printf %b "*2\r\n\$3\r\nGET\r\n\$${#REDIS_VAR}\r\n$REDIS_VAR\r\n"
+	else
+		typeset REDIS_VAR="$1"
+		typeset REDIS_FIELD=$REDIS_HASH
+		printf %b "*3\r\n\$4\r\nHGET\r\n\$${#REDIS_VAR}\r\n$REDIS_VAR\r\n\$${#REDIS_FIELD}\r\n${REDIS_FIELD}\r\n"
+	fi
 }
 
 function redis_blpop_var() {
@@ -122,6 +128,25 @@ function redis_set_var() {
 		echo -n "$REDIS_VAR_VAL"
 		printf %b "\r\n"
 	fi
+}
+
+function redis_hset_var() {
+	typeset REDIS_VAR="$1"
+	typeset REDIS_FIELD="$2"
+	typeset REDIS_VALUE="$3"
+	printf %b "*4\r\n\$4\r\nHSET\r\n\$${#REDIS_VAR}\r\n$REDIS_VAR\r\n\$${#REDIS_FIELD}\r\n${REDIS_FIELD}\r\n\$${#REDIS_VALUE}\r\n${REDIS_VALUE}\r\n"
+}
+
+function redis_del_var() {
+	typeset REDIS_VAR="$1"
+	printf %b "*2\r\n\$3\r\nDEL\r\n\$${#REDIS_VAR}\r\n$REDIS_VAR\r\n"
+}
+
+function redis_hincrby() {
+	typeset REDIS_VAR="$1"
+	typeset REDIS_FIELD="$2"
+	typeset REDIS_VALUE="$3"
+	printf %b "*4\r\n\$7\r\nHINCRBY\r\n\$${#REDIS_VAR}\r\n$REDIS_VAR\r\n\$${#REDIS_FIELD}\r\n${REDIS_FIELD}\r\n\$${#REDIS_VALUE}\r\n${REDIS_VALUE}\r\n"
 }
 
 function redis_get_array() {
@@ -151,7 +176,7 @@ function redis_set_array() {
 	fi
 }
 
-while getopts g:s:r:P:H:p:d:G:S:haw opt; do
+while getopts g:s:r:P:H:p:d:G:S:D:I:f:haw opt; do
 	case $opt in
 		p)
 			REDIS_PW=${OPTARG}
@@ -187,21 +212,32 @@ while getopts g:s:r:P:H:p:d:G:S:haw opt; do
 			REDIS_PUSH=1
 			REDIS_SET=${OPTARG}
 			;;
+		D)
+			REDIS_DEL=${OPTARG}
+			;;
+		I)
+			REDIS_HINCRBY=$2
+			REDIS_HINCRBY_FIELD=$3
+			REDIS_HINCRBY_VALUE=$4
+			;;
+		f)
+			REDIS_HASH=${OPTARG}
+			;;
     d)
 			REDIS_DB=${OPTARG}
 			;;
 		h)
 			echo
 			echo USAGE:
-			echo "	$0 [-a] [-w] [-r <range>] [-s <var>] [-g <var>] [-S <var>] [-G <var>] [-p <password>] [-d <database_number>] [-H <hostname>] [-P <port>]"
+			echo "	$0 [-a] [-w] [-r <range>] [-s <var>] [-g <var>] [-S <var>] [-G <var>] [-p <password>] [-d <database_number>] [-H <hostname>] [-P <port>] [-D <key>] [-I <key> <field> <value>]"
 			echo
 			exit 1
 			;;
 	esac
 done
 
-if [[ -z $REDIS_GET ]] && [[ -z $REDIS_SET ]]; then
-	echo "You must either GET(-g) or SET(-s) or BLPOP(-G) or RPUSH(-S)" >&2
+if [[ -z $REDIS_HINCRBY ]] && [[ -z $REDIS_DEL ]] && [[ -z $REDIS_GET ]] && [[ -z $REDIS_SET ]]; then
+	echo "You must either DEL(-D) or HINCRBY(-I) or GET(-g) or SET(-s) or BLPOP(-G) or RPUSH(-S)" >&2
 	exit 1
 fi
 
@@ -238,6 +274,20 @@ if [[ ! -z $REDIS_GET ]]; then
 	exit 0
 fi
 
+if [[ ! -z $REDIS_DEL ]]; then
+	redis_del_var "$REDIS_DEL" >&$FD
+	redis_read $FD
+	exec {FD}>&-
+	exit 0
+fi
+
+if [[ ! -z $REDIS_HINCRBY ]]; then
+	redis_hincrby "$REDIS_HINCRBY" "$REDIS_HINCRBY_FIELD" "$REDIS_HINCRBY_VALUE" >&$FD
+	redis_read $FD
+	exec {FD}>&-
+	exit 0
+fi
+
 if [[ -z $INPUT_RAW ]]; then
 	while read -r line
 	do
@@ -256,6 +306,8 @@ if [[ ! -z $REDIS_SET ]]; then
 		else
 			redis_set_array "$REDIS_SET" "$REDIS_TODO" >&$FD
 		fi
+	elif [[ ! -z $REDIS_HASH ]]; then
+		redis_hset_var "$REDIS_SET" "$REDIS_HASH" "$REDIS_TODO" >&$FD
 	else
 		redis_set_var "$REDIS_SET" "$REDIS_TODO" >&$FD
 	fi
