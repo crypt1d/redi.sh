@@ -32,12 +32,11 @@ function redis_read_bulk() {
                 exit 1
         fi
 
-        echo $(dd bs=1 count=$BYTE_COUNT status=noxfer <&$FILE_DESC 2>/dev/null)
-        dd bs=1 count=2 status=noxfer <&$FILE_DESC 1>/dev/null 2>&1 # we are removing the extra character \r
+        echo $(dd bs=1 count=$BYTE_COUNT  <&$FILE_DESC 2>/dev/null)
+        dd bs=1 count=2  <&$FILE_DESC 1>/dev/null 2>&1 # we are removing the extra character \r
 }
 
 function redis_read() {
-
 typeset -i FILE_DESC=$1
 
 if [[ $# -eq  2 ]]; then
@@ -48,7 +47,7 @@ fi
 while read -r socket_data
 do
         typeset first_char
-        first_char=$(printf %b "$socket_data" | head -c1)
+        first_char=$(printf %b "$socket_data" | dd bs=1 count=1 2>/dev/null)
 
         case $first_char in
                 '+')
@@ -101,6 +100,11 @@ function redis_get_var() {
 	printf %b "*2\r\n\$3\r\nGET\r\n\$${#REDIS_VAR}\r\n$REDIS_VAR\r\n"
 }
 
+function redis_keys() {
+	typeset REDIS_VAR="$@"
+	printf %b "KEYS $REDIS_VAR\r\n"
+}
+
 function redis_set_var() {
 	typeset REDIS_VAR="$1"
 	shift
@@ -126,7 +130,7 @@ function redis_set_array() {
 	done
 }
 
-while getopts g:s:r:P:H:p:d:ha opt; do
+while getopts g:s:k:r:P:H:p:d:ha opt; do
 	case $opt in
 		p)
 			REDIS_PW=${OPTARG}
@@ -140,6 +144,9 @@ while getopts g:s:r:P:H:p:d:ha opt; do
 		g)
 			REDIS_GET=${OPTARG}
 			;;
+		k)
+		        REDIS_KEY=${OPTARG}
+		        ;;
 		a)
 			REDIS_ARRAY=1
 			;;
@@ -155,27 +162,28 @@ while getopts g:s:r:P:H:p:d:ha opt; do
 		h)
 			echo
 			echo USAGE:
-			echo "	$0 [-a] [-r <range>] [-s <var>] [-g <var>] [-p <password>] [-d <database_number>] [-H <hostname>] [-P <port>]"
+			echo "	$0 [-a] [-r <range>] [-s <var>] [-g <var>] [-k <pattern>] [-p <password>] [-d <database_number>] [-H <hostname>] [-P <port>]"
 			echo
 			exit 1
 			;;
 	esac
 done
 
-if [[ -z $REDIS_GET ]] && [[ -z $REDIS_SET ]]; then
-	echo "You must either GET(-g) or SET(-s)" >&2
+if [[ -z "$REDIS_GET" ]] && [[ -z "$REDIS_SET" ]] && [[ -z "$REDIS_KEY" ]]; then
+	echo "You must either GET(-g), SET(-s) or KEYS(-k)" >&2
 	exit 1
 fi
 
 exec {FD}<> /dev/tcp/"$REDIS_HOST"/"$REDIS_PORT"
 
-redis_select_db "$REDIS_DB" >&$FD
-redis_read $FD 1>/dev/null 2>&1
-
+# do we need to authenticate first?
 if [[ ! -z $REDIS_PW ]]; then
 	redis_compose_cmd "$REDIS_PW" >&$FD
-    redis_read $FD 1>/dev/null 2>&1
+    redis_read $FD  1>/dev/null 2>&1
 fi
+
+redis_select_db "$REDIS_DB" >&$FD
+redis_read $FD  1>/dev/null 2>&1
 
 if [[ ! -z $REDIS_GET ]]; then
 	if [[ $REDIS_ARRAY -eq 1 ]]; then
@@ -194,6 +202,14 @@ if [[ ! -z $REDIS_GET ]]; then
 
 	exec {FD}>&-
 	exit 0
+fi
+
+if [[ ! -z "$REDIS_KEY" ]]; then
+    redis_keys "$REDIS_KEY" >&$FD
+    redis_read $FD
+    
+    exec {FD}>&-
+    exit 0
 fi
 
 while read -r line
