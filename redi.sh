@@ -32,12 +32,11 @@ function redis_read_bulk() {
                 exit 1
         fi
 
-        echo $(dd bs=1 count=$BYTE_COUNT status=noxfer <&$FILE_DESC 2>/dev/null)
-        dd bs=1 count=2 status=noxfer <&$FILE_DESC 1>/dev/null 2>&1 # we are removing the extra character \r
+        echo $(dd bs=1 count=$BYTE_COUNT  <&$FILE_DESC 2>/dev/null)
+        dd bs=1 count=2  <&$FILE_DESC 1>/dev/null 2>&1 # we are removing the extra character \r
 }
 
 function redis_read() {
-
 typeset -i FILE_DESC=$1
 
 if [[ $# -eq  2 ]]; then
@@ -48,7 +47,7 @@ fi
 while read -r socket_data
 do
         typeset first_char
-        first_char=$(printf %b "$socket_data" | head -c1)
+        first_char=$(printf %b "$socket_data" | dd bs=1 count=1 2>/dev/null)
 
         case $first_char in
                 '+')
@@ -169,13 +168,14 @@ fi
 
 exec {FD}<> /dev/tcp/"$REDIS_HOST"/"$REDIS_PORT"
 
-redis_select_db "$REDIS_DB" >&$FD
-redis_read $FD 1>/dev/null 2>&1
-
+# do we need to authenticate first?
 if [[ ! -z $REDIS_PW ]]; then
 	redis_compose_cmd "$REDIS_PW" >&$FD
-    redis_read $FD 1>/dev/null 2>&1
+    redis_read $FD  1>/dev/null 2>&1
 fi
+
+redis_select_db "$REDIS_DB" >&$FD
+redis_read $FD  1>/dev/null 2>&1
 
 if [[ ! -z $REDIS_GET ]]; then
 	if [[ $REDIS_ARRAY -eq 1 ]]; then
