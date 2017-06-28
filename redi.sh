@@ -169,13 +169,13 @@ fi
 
 exec {FD}<> /dev/tcp/"$REDIS_HOST"/"$REDIS_PORT"
 
-redis_select_db "$REDIS_DB" >&$FD
-redis_read $FD 1>/dev/null 2>&1
-
 if [[ ! -z $REDIS_PW ]]; then
 	redis_compose_cmd "$REDIS_PW" >&$FD
     redis_read $FD 1>/dev/null 2>&1
 fi
+
+redis_select_db "$REDIS_DB" >&$FD
+redis_read $FD 1>/dev/null 2>&1
 
 if [[ ! -z $REDIS_GET ]]; then
 	if [[ $REDIS_ARRAY -eq 1 ]]; then
