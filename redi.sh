@@ -32,7 +32,7 @@ function redis_read_bulk() {
                 exit 1
         fi
 
-        echo $(dd bs=1 count=$BYTE_COUNT status=noxfer <&$FILE_DESC 2>/dev/null)
+        dd bs=1 count=$BYTE_COUNT status=noxfer of=/dev/stdout <&$FILE_DESC 2>/dev/null
         dd bs=1 count=2 status=noxfer <&$FILE_DESC 1>/dev/null 2>&1 # we are removing the extra character \r
 }
 
@@ -73,6 +73,7 @@ do
 if [[ ! -z $PARAM_COUNT ]]; then
 	if [[ $PARAM_CUR -lt $PARAM_COUNT ]]; then
 		((PARAM_CUR+=1))
+		echo
 		continue
 	else
        		break
@@ -97,15 +98,57 @@ function redis_select_db() {
 
 
 function redis_get_var() {
-	typeset REDIS_VAR="$@"
-	printf %b "*2\r\n\$3\r\nGET\r\n\$${#REDIS_VAR}\r\n$REDIS_VAR\r\n"
+	if [ -z $REDIS_HASH ]; then
+		typeset REDIS_VAR="$@"
+		printf %b "*2\r\n\$3\r\nGET\r\n\$${#REDIS_VAR}\r\n$REDIS_VAR\r\n"
+	else
+		typeset REDIS_VAR="$1"
+		typeset REDIS_FIELD=$REDIS_HASH
+		printf %b "*3\r\n\$4\r\nHGET\r\n\$${#REDIS_VAR}\r\n$REDIS_VAR\r\n\$${#REDIS_FIELD}\r\n${REDIS_FIELD}\r\n"
+	fi
+}
+
+function redis_blpop_var() {
+	((number=$#+1))
+	protocol="*$number\r\n\$5\r\nBLPOP\r\n"
+	for i in "$@"; do
+		protocol="$protocol\$${#i}\r\n$i\r\n"
+	done
+	printf %b $protocol
 }
 
 function redis_set_var() {
 	typeset REDIS_VAR="$1"
 	shift
 	typeset REDIS_VAR_VAL="$@"
-	printf %b "*3\r\n\$3\r\nSET\r\n\$${#REDIS_VAR}\r\n$REDIS_VAR\r\n\$${#REDIS_VAR_VAL}\r\n$REDIS_VAR_VAL\r\n"
+	if [ -z $INPUT_RAW ]; then
+		printf %b "*3\r\n\$3\r\nSET\r\n\$${#REDIS_VAR}\r\n$REDIS_VAR\r\n\$${#REDIS_VAR_VAL}\r\n$REDIS_VAR_VAL\r\n"
+	else
+		printf %b "*3\r\n\$3\r\nSET\r\n\$${#REDIS_VAR}\r\n$REDIS_VAR\r\n\$${#REDIS_VAR_VAL}\r\n"
+		echo -n "$REDIS_VAR_VAL"
+		printf %b "\r\n"
+	fi
+}
+
+function redis_hset_var() {
+	typeset REDIS_VAR="$1"
+	typeset REDIS_FIELD="$2"
+	typeset REDIS_VALUE="$3"
+	typeset BYTES=`echo -n ${REDIS_VALUE} | wc -c`
+	printf %b "*4\r\n\$4\r\nHSET\r\n\$${#REDIS_VAR}\r\n$REDIS_VAR\r\n\$${#REDIS_FIELD}\r\n${REDIS_FIELD}\r\n\$${BYTES}\r\n${REDIS_VALUE}\r\n"
+}
+
+function redis_del_var() {
+	typeset REDIS_VAR="$1"
+	printf %b "*2\r\n\$3\r\nDEL\r\n\$${#REDIS_VAR}\r\n$REDIS_VAR\r\n"
+}
+
+function redis_hincrby() {
+	typeset REDIS_VAR="$1"
+	typeset REDIS_FIELD="$2"
+	typeset REDIS_VALUE="$3"
+	typeset BYTES=`echo -n ${REDIS_VALUE} | wc -c`
+	printf %b "*4\r\n\$7\r\nHINCRBY\r\n\$${#REDIS_VAR}\r\n$REDIS_VAR\r\n\$${#REDIS_FIELD}\r\n${REDIS_FIELD}\r\n\$${BYTES}\r\n${REDIS_VALUE}\r\n"
 }
 
 function redis_get_array() {
@@ -118,15 +161,24 @@ function redis_get_array() {
 function redis_set_array() {
 	typeset REDIS_ARRAY="$1"
 	typeset -a REDIS_ARRAY_VAL=("${!2}")
+	typeset REDIS_RAW_VAL="$2"
 
-	printf %b "*2\r\n\$3\r\nDEL\r\n\$${#REDIS_ARRAY}\r\n$REDIS_ARRAY\r\n"
-	for i in "${REDIS_ARRAY_VAL[@]}"
-	do
-		printf %b "*3\r\n\$5\r\nRPUSH\r\n\$${#REDIS_ARRAY}\r\n$REDIS_ARRAY\r\n\$${#i}\r\n$i\r\n"
-	done
+	if [ -z $REDIS_PUSH ]; then
+		printf %b "*2\r\n\$3\r\nDEL\r\n\$${#REDIS_ARRAY}\r\n$REDIS_ARRAY\r\n"
+	fi
+	if [ -z $INPUT_RAW ]; then
+		for i in "${REDIS_ARRAY_VAL[@]}"
+		do
+			printf %b "*3\r\n\$5\r\nRPUSH\r\n\$${#REDIS_ARRAY}\r\n$REDIS_ARRAY\r\n\$${#i}\r\n$i\r\n"
+		done
+	else
+		printf %b "*3\r\n\$5\r\nRPUSH\r\n\$${#REDIS_ARRAY}\r\n$REDIS_ARRAY\r\n\$${#REDIS_RAW_VAL}\r\n"
+		echo -n "$REDIS_RAW_VAL"
+		printf %b "\r\n"
+	fi
 }
 
-while getopts g:s:r:P:H:p:d:ha opt; do
+while getopts g:s:r:P:H:p:d:G:S:D:I:f:haw opt; do
 	case $opt in
 		p)
 			REDIS_PW=${OPTARG}
@@ -143,11 +195,35 @@ while getopts g:s:r:P:H:p:d:ha opt; do
 		a)
 			REDIS_ARRAY=1
 			;;
+		w)
+			INPUT_RAW=1
+			;;
 		r)
 			REDIS_ARRAY_RANGE=${OPTARG}
 			;;
 		s)
 			REDIS_SET=${OPTARG}
+			;;
+		G)
+			REDIS_ARRAY=0
+			REDIS_POP=1
+			REDIS_GET=${OPTARG}
+			;;
+		S)
+			REDIS_ARRAY=1
+			REDIS_PUSH=1
+			REDIS_SET=${OPTARG}
+			;;
+		D)
+			REDIS_DEL=${OPTARG}
+			;;
+		I)
+			REDIS_HINCRBY=$2
+			REDIS_HINCRBY_FIELD=$3
+			REDIS_HINCRBY_VALUE=$4
+			;;
+		f)
+			REDIS_HASH=${OPTARG}
 			;;
     d)
 			REDIS_DB=${OPTARG}
@@ -155,15 +231,15 @@ while getopts g:s:r:P:H:p:d:ha opt; do
 		h)
 			echo
 			echo USAGE:
-			echo "	$0 [-a] [-r <range>] [-s <var>] [-g <var>] [-p <password>] [-d <database_number>] [-H <hostname>] [-P <port>]"
+			echo "	$0 [-a] [-w] [-r <range>] [-s <var>] [-g <var>] [-S <var>] [-G <var>] [-p <password>] [-d <database_number>] [-H <hostname>] [-P <port>] [-D <key>] [-I <key> <field> <value>]"
 			echo
 			exit 1
 			;;
 	esac
 done
 
-if [[ -z $REDIS_GET ]] && [[ -z $REDIS_SET ]]; then
-	echo "You must either GET(-g) or SET(-s)" >&2
+if [[ -z $REDIS_HINCRBY ]] && [[ -z $REDIS_DEL ]] && [[ -z $REDIS_GET ]] && [[ -z $REDIS_SET ]]; then
+	echo "You must either DEL(-D) or HINCRBY(-I) or GET(-g) or SET(-s) or BLPOP(-G) or RPUSH(-S)" >&2
 	exit 1
 fi
 
@@ -187,6 +263,10 @@ if [[ ! -z $REDIS_GET ]]; then
 			echo $i
 		done
 
+	elif [ ! -z $REDIS_POP ]; then
+		redis_blpop_var "$REDIS_GET" 0 >&$FD
+		redis_read $FD
+
 	else
 		redis_get_var "$REDIS_GET" >&$FD
 		redis_read $FD
@@ -196,21 +276,44 @@ if [[ ! -z $REDIS_GET ]]; then
 	exit 0
 fi
 
-while read -r line
-do
-        REDIS_TODO=$line
-done </dev/stdin
+if [[ ! -z $REDIS_DEL ]]; then
+	redis_del_var "$REDIS_DEL" >&$FD
+	redis_read $FD
+	exec {FD}>&-
+	exit 0
+fi
+
+if [[ ! -z $REDIS_HINCRBY ]]; then
+	redis_hincrby "$REDIS_HINCRBY" "$REDIS_HINCRBY_FIELD" "$REDIS_HINCRBY_VALUE" >&$FD
+	redis_read $FD
+	exec {FD}>&-
+	exit 0
+fi
+
+if [[ -z $INPUT_RAW ]]; then
+	while read -r line
+	do
+		REDIS_TODO=$line
+	done </dev/stdin
+else
+	REDIS_TODO=`cat`
+fi
 
 if [[ ! -z $REDIS_SET ]]; then
 	if [[ $REDIS_ARRAY -eq 1 ]]; then
-		set -- $REDIS_TODO
-		typeset -a temparray=( $@ )
-		redis_set_array "$REDIS_SET" temparray[@] >&$FD
-		redis_read $FD 1>/dev/null 2>&1
+		if [[ -z $INPUT_RAW ]]; then
+			set -- $REDIS_TODO
+			typeset -a temparray=( $@ )
+			redis_set_array "$REDIS_SET" temparray[@] >&$FD
+		else
+			redis_set_array "$REDIS_SET" "$REDIS_TODO" >&$FD
+		fi
+	elif [[ ! -z $REDIS_HASH ]]; then
+		redis_hset_var "$REDIS_SET" "$REDIS_HASH" "$REDIS_TODO" >&$FD
 	else
 		redis_set_var "$REDIS_SET" "$REDIS_TODO" >&$FD
-		redis_read $FD 1>/dev/null 2>&1
 	fi
+	redis_read $FD 1>/dev/null 2>&1
 	exec {FD}>&-
 	exit 0
 fi
