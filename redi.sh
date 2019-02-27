@@ -28,7 +28,7 @@ function redis_read_bulk() {
         typeset -i FILE_DESC=$2
         if [[ $BYTE_COUNT -lt 0 ]]; then
                 echo ERROR: Null or incorrect string size returned. >&2
-		exec {FILE_DESC}>&-
+        exec {FILE_DESC}>&-
                 exit 1
         fi
 
@@ -41,8 +41,8 @@ function redis_read() {
 typeset -i FILE_DESC=$1
 
 if [[ $# -eq  2 ]]; then
-	typeset -i PARAM_COUNT=$2
-	typeset -i PARAM_CUR=1
+    typeset -i PARAM_COUNT=$2
+    typeset -i PARAM_CUR=1
 fi
 
 while read -r socket_data
@@ -66,19 +66,19 @@ do
                         ;;
                 '*')
                         paramcount=$(printf %b "$socket_data" | cut -f2 -d* | tr -d '\r')
-			redis_read "$FILE_DESC" "$paramcount"
+            redis_read "$FILE_DESC" "$paramcount"
                         ;;
         esac
 
 if [[ ! -z $PARAM_COUNT ]]; then
-	if [[ $PARAM_CUR -lt $PARAM_COUNT ]]; then
-		((PARAM_CUR+=1))
-		continue
-	else
-       		break
-	fi
+    if [[ $PARAM_CUR -lt $PARAM_COUNT ]]; then
+        ((PARAM_CUR+=1))
+        continue
+    else
+               break
+    fi
 else
-	break
+    break
 fi
 
 done<&"$FILE_DESC"
@@ -97,74 +97,82 @@ function redis_select_db() {
 
 
 function redis_get_var() {
-	typeset REDIS_VAR="$@"
-	printf %b "*2\r\n\$3\r\nGET\r\n\$${#REDIS_VAR}\r\n$REDIS_VAR\r\n"
+    typeset REDIS_VAR="$@"
+    printf %b "*2\r\n\$3\r\nGET\r\n\$${#REDIS_VAR}\r\n$REDIS_VAR\r\n"
+}
+
+function redis_expire_var() {
+    typeset REDIS_EXPIRE="$1"
+    printf %b "*3\r\n\$6\r\nEXPIRE\r\n\$${#REDIS_EXPIRE}\r\n$REDIS_EXPIRE\r\n\$${#REDIS_TTL}\r\n$REDIS_TTL\r\n"
 }
 
 function redis_set_var() {
-	typeset REDIS_VAR="$1"
-	shift
-	typeset REDIS_VAR_VAL="$@"
-	printf %b "*3\r\n\$3\r\nSET\r\n\$${#REDIS_VAR}\r\n$REDIS_VAR\r\n\$${#REDIS_VAR_VAL}\r\n$REDIS_VAR_VAL\r\n"
+    typeset REDIS_VAR="$1"
+    shift
+    typeset REDIS_VAR_VAL="$@"
+    printf %b "*3\r\n\$3\r\nSET\r\n\$${#REDIS_VAR}\r\n$REDIS_VAR\r\n\$${#REDIS_VAR_VAL}\r\n$REDIS_VAR_VAL\r\n"
 }
 
 function redis_get_array() {
-	typeset REDIS_ARRAY="$1"
-	RANGE_LOW=$(echo $2 | cut -f1 -d,)
-	RANGE_HIGH=$(echo $2 | cut -f2 -d,)
-	printf %b "*4\r\n\$6\r\nLRANGE\r\n\$${#REDIS_ARRAY}\r\n$REDIS_ARRAY\r\n\$${#RANGE_LOW}\r\n$RANGE_LOW\r\n\$${#RANGE_HIGH}\r\n$RANGE_HIGH\r\n"
+    typeset REDIS_ARRAY="$1"
+    RANGE_LOW=$(echo $2 | cut -f1 -d,)
+    RANGE_HIGH=$(echo $2 | cut -f2 -d,)
+    printf %b "*4\r\n\$6\r\nLRANGE\r\n\$${#REDIS_ARRAY}\r\n$REDIS_ARRAY\r\n\$${#RANGE_LOW}\r\n$RANGE_LOW\r\n\$${#RANGE_HIGH}\r\n$RANGE_HIGH\r\n"
 }
 
 function redis_set_array() {
-	typeset REDIS_ARRAY="$1"
-	typeset -a REDIS_ARRAY_VAL=("${!2}")
+    typeset REDIS_ARRAY="$1"
+    typeset -a REDIS_ARRAY_VAL=("${!2}")
 
-	printf %b "*2\r\n\$3\r\nDEL\r\n\$${#REDIS_ARRAY}\r\n$REDIS_ARRAY\r\n"
-	for i in "${REDIS_ARRAY_VAL[@]}"
-	do
-		printf %b "*3\r\n\$5\r\nRPUSH\r\n\$${#REDIS_ARRAY}\r\n$REDIS_ARRAY\r\n\$${#i}\r\n$i\r\n"
-	done
+    printf %b "*2\r\n\$3\r\nDEL\r\n\$${#REDIS_ARRAY}\r\n$REDIS_ARRAY\r\n"
+    for i in "${REDIS_ARRAY_VAL[@]}"
+    do
+        printf %b "*3\r\n\$5\r\nRPUSH\r\n\$${#REDIS_ARRAY}\r\n$REDIS_ARRAY\r\n\$${#i}\r\n$i\r\n"
+    done
 }
 
-while getopts g:s:r:P:H:p:d:ha opt; do
-	case $opt in
-		p)
-			REDIS_PW=${OPTARG}
-			;;
-		H)
-			REDIS_HOST=${OPTARG}
-			;;
-		P)
-			REDIS_PORT=${OPTARG}
-			;;
-		g)
-			REDIS_GET=${OPTARG}
-			;;
-		a)
-			REDIS_ARRAY=1
-			;;
-		r)
-			REDIS_ARRAY_RANGE=${OPTARG}
-			;;
-		s)
-			REDIS_SET=${OPTARG}
-			;;
-    d)
-			REDIS_DB=${OPTARG}
-			;;
-		h)
-			echo
-			echo USAGE:
-			echo "	$0 [-a] [-r <range>] [-s <var>] [-g <var>] [-p <password>] [-d <database_number>] [-H <hostname>] [-P <port>]"
-			echo
-			exit 1
-			;;
-	esac
+while getopts g:s:t:r:P:H:p:d:ha opt; do
+    case $opt in
+        p)
+            REDIS_PW=${OPTARG}
+            ;;
+        H)
+            REDIS_HOST=${OPTARG}
+            ;;
+        P)
+            REDIS_PORT=${OPTARG}
+            ;;
+        g)
+            REDIS_GET=${OPTARG}
+            ;;
+        a)
+            REDIS_ARRAY=1
+            ;;
+        r)
+            REDIS_ARRAY_RANGE=${OPTARG}
+            ;;
+        s)
+            REDIS_SET=${OPTARG}
+            ;;
+        d)
+            REDIS_DB=${OPTARG}
+            ;;
+        t)
+            REDIS_TTL=${OPTARG}
+            ;;
+        h)
+            echo
+            echo USAGE:
+            echo "    $0 [-a] [-r <range>] [-s <var>] [-g <var>] [-p <password>] [-d <database_number>] [-H <hostname>] [-P <port>] [-t <ttl>]"
+            echo
+            exit 1
+            ;;
+    esac
 done
 
 if [[ -z $REDIS_GET ]] && [[ -z $REDIS_SET ]]; then
-	echo "You must either GET(-g) or SET(-s)" >&2
-	exit 1
+    echo "You must either GET(-g) or SET(-s)" >&2
+    exit 1
 fi
 
 exec {FD}<> /dev/tcp/"$REDIS_HOST"/"$REDIS_PORT"
@@ -173,27 +181,27 @@ redis_select_db "$REDIS_DB" >&$FD
 redis_read $FD 1>/dev/null 2>&1
 
 if [[ ! -z $REDIS_PW ]]; then
-	redis_compose_cmd "$REDIS_PW" >&$FD
+    redis_compose_cmd "$REDIS_PW" >&$FD
     redis_read $FD 1>/dev/null 2>&1
 fi
 
 if [[ ! -z $REDIS_GET ]]; then
-	if [[ $REDIS_ARRAY -eq 1 ]]; then
-		redis_get_array "$REDIS_GET" "$REDIS_ARRAY_RANGE" >&$FD
-		IFS=$'\n'
+    if [[ $REDIS_ARRAY -eq 1 ]]; then
+        redis_get_array "$REDIS_GET" "$REDIS_ARRAY_RANGE" >&$FD
+        IFS=$'\n'
 
-		for i in $(redis_read $FD)
-		do
-			echo $i
-		done
+        for i in $(redis_read $FD)
+        do
+            echo $i
+        done
 
-	else
-		redis_get_var "$REDIS_GET" >&$FD
-		redis_read $FD
-	fi
+    else
+        redis_get_var "$REDIS_GET" >&$FD
+        redis_read $FD
+    fi
 
-	exec {FD}>&-
-	exit 0
+    exec {FD}>&-
+    exit 0
 fi
 
 while read -r line
@@ -202,15 +210,19 @@ do
 done </dev/stdin
 
 if [[ ! -z $REDIS_SET ]]; then
-	if [[ $REDIS_ARRAY -eq 1 ]]; then
-		set -- $REDIS_TODO
-		typeset -a temparray=( $@ )
-		redis_set_array "$REDIS_SET" temparray[@] >&$FD
-		redis_read $FD 1>/dev/null 2>&1
-	else
-		redis_set_var "$REDIS_SET" "$REDIS_TODO" >&$FD
-		redis_read $FD 1>/dev/null 2>&1
-	fi
-	exec {FD}>&-
-	exit 0
+    if [[ $REDIS_ARRAY -eq 1 ]]; then
+        set -- $REDIS_TODO
+        typeset -a temparray=( $@ )
+        redis_set_array "$REDIS_SET" temparray[@] >&$FD
+        redis_read $FD 1>/dev/null 2>&1
+    else
+        redis_set_var "$REDIS_SET" "$REDIS_TODO" >&$FD
+        redis_read $FD 1>/dev/null 2>&1
+    fi
+    if [[ ! -z $REDIS_TTL ]]; then
+        redis_expire_var "$REDIS_SET" >&$FD
+        redis_read $FD 1>/dev/null 2>&1
+    fi
+    exec {FD}>&-
+    exit 0
 fi

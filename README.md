@@ -12,11 +12,12 @@ Redi.sh is a primitive Redis client, written entirely in Bash. It allows you to 
     -a              : Tells the script that we are working with arrays, instead of regular variables.
     -r <min,max>    : When used with -a, defines the range of elements to get from the array. Default is all (0,-1).
     -g <name>       : Get the variable/array specified by <name> and output it to stdout.
-    -s <name>        : Set the variable/array specified by <name> with the input from stdin.
+    -s <name>       : Set the variable/array specified by <name> with the input from stdin.
     -p <password>   : Use "AUTH <password>" before running the SET/GET command to authenticate to redis.
     -H <hostname>   : Specify a custom hostname to connect to. Default is localhost.
-    -d <number>   : Specify a custom database number from range 0-15\. Default is 0
+    -d <number>     : Specify a custom database number from range 0-15\. Default is 0
     -P <port>       : Specify a custom port to connect to. Default is 6379.
+    -t <ttl>        : TTL for key when setting
 ```
 
 ## Example:
