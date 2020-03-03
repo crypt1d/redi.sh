@@ -3,6 +3,7 @@
 REDIS_HOST="${REDIS_HOST:-127.0.0.1}"
 REDIS_PORT="${REDIS_PORT:-6379}"
 REDIS_DB="${REDIS_DB:-0}"
+REDIS_SELECT=1
 CLIENT_VERSION=0.4
 REDIS_ARRAY_RANGE="0,-1"
 
@@ -101,6 +102,11 @@ function redis_get_var() {
 	printf %b "*2\r\n\$3\r\nGET\r\n\$${#REDIS_VAR}\r\n$REDIS_VAR\r\n"
 }
 
+function redis_llen() {
+	typeset REDIS_VAR="$@"
+	printf %b "*2\r\n\$4\r\nLLEN\r\n\$${#REDIS_VAR}\r\n$REDIS_VAR\r\n"
+}
+
 function redis_set_var() {
 	typeset REDIS_VAR="$1"
 	shift
@@ -126,7 +132,7 @@ function redis_set_array() {
 	done
 }
 
-while getopts g:s:r:P:H:p:d:ha opt; do
+while getopts g:l:s:r:P:H:p:d:Dha opt; do
 	case $opt in
 		p)
 			REDIS_PW=${OPTARG}
@@ -140,6 +146,9 @@ while getopts g:s:r:P:H:p:d:ha opt; do
 		g)
 			REDIS_GET=${OPTARG}
 			;;
+		l)
+			REDIS_LLEN=${OPTARG}
+			;;
 		a)
 			REDIS_ARRAY=1
 			;;
@@ -149,32 +158,45 @@ while getopts g:s:r:P:H:p:d:ha opt; do
 		s)
 			REDIS_SET=${OPTARG}
 			;;
-    d)
+		d)
 			REDIS_DB=${OPTARG}
+			;;
+		D)
+			REDIS_SELECT=0
 			;;
 		h)
 			echo
 			echo USAGE:
-			echo "	$0 [-a] [-r <range>] [-s <var>] [-g <var>] [-p <password>] [-d <database_number>] [-H <hostname>] [-P <port>]"
+			echo "	$0 [-a] [-r <range>] [-s <var>] [-g <var>] [-l <var>] [-p <password>] [-d <database_number>] [-H <hostname>] [-P <port>]"
 			echo
 			exit 1
 			;;
 	esac
 done
 
-if [[ -z $REDIS_GET ]] && [[ -z $REDIS_SET ]]; then
-	echo "You must either GET(-g) or SET(-s)" >&2
+if [[ -z $REDIS_LLEN ]] && [[ -z $REDIS_GET ]] && [[ -z $REDIS_SET ]]; then
+	echo "You must either LLEN (-l), GET(-g) or SET(-s)" >&2
 	exit 1
 fi
 
 exec {FD}<> /dev/tcp/"$REDIS_HOST"/"$REDIS_PORT"
 
-redis_select_db "$REDIS_DB" >&$FD
-redis_read $FD 1>/dev/null 2>&1
+# Disable selecting database
+if [[ $REDIS_SELECT -eq 1 ]]; then
+	redis_select_db "$REDIS_DB" >&$FD
+	redis_read $FD 1>/dev/null 2>&1
+fi
 
 if [[ ! -z $REDIS_PW ]]; then
 	redis_compose_cmd "$REDIS_PW" >&$FD
     redis_read $FD 1>/dev/null 2>&1
+fi
+
+if [[ ! -z $REDIS_LLEN ]]; then
+	redis_llen "$REDIS_LLEN" >&$FD
+	redis_read $FD
+	exec {FD}>&-
+	exit 0
 fi
 
 if [[ ! -z $REDIS_GET ]]; then
